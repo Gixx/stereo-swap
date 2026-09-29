@@ -4,29 +4,31 @@
 
 | Script | Role |
 |--------|------|
-| `RegisterApo.ps1` | Admin: COM register + FxProperties bind/unbind |
+| `RegisterApo.ps1` | Admin: install / enable / disable / bind / unbind |
+| `packaging/Install-Apo.bat` | Double-click wrapper (UAC) for COM install |
+| `apo/Build-Apo.bat` | Build `StereoSwapApo.dll` |
 
-## Typical MVP flow
+## Typical flow (no typing)
 
-1. Build `StereoSwapApo.dll` (`docs/apo-build.md`)
-2. Admin PowerShell:
+1. `packaging\Build-Release.bat`
+2. `dist\StereoSwap\Install-StereoSwap.bat`
+3. `dist\StereoSwap\Install-Apo.bat` (UAC)
+4. Tray → select device → enable L↔R swap (UAC; restarts audio briefly)
+
+## PowerShell (optional)
 
 ```powershell
 cd install
-.\RegisterApo.ps1 -Action register -DllPath ..\apo\build\bin\Release\StereoSwapApo.dll
-.\RegisterApo.ps1 -Action bind -DeviceId '{0.0.0.00000000}.{YOUR-ENDPOINT-GUID}'
+.\RegisterApo.ps1 -Action install -DllPath ..\apo\build\bin\StereoSwapApo.dll
+.\RegisterApo.ps1 -Action enable -DeviceId '{0.0.0.00000000}.{YOUR-ENDPOINT-GUID}'
 ```
-
-3. Start the tray app, select the same device, enable swap (writes `%ProgramData%\StereoSwap\config.json`).
-4. Play audio in **shared** mode and verify L↔R.
 
 ## Uninstall
 
 ```powershell
-.\RegisterApo.ps1 -Action unbind -DeviceId '...'
-.\RegisterApo.ps1 -Action unregister
+.\RegisterApo.ps1 -Action disable -DeviceId '...' -Unregister
 ```
 
 ## Caution
 
-FxProperties edits affect the system audio graph. Wrong CLSID / missing DLL can silence an endpoint until unbound. Prefer a spare USB DAC while developing.
+FxProperties edits affect the system audio graph. Prefer a spare USB DAC while developing. If an endpoint goes silent, run disable/unbind and restart the Audio service.

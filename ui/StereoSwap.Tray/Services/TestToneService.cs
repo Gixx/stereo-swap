@@ -24,12 +24,10 @@ public sealed class TestToneService
     public void PlayRightOnly(bool swapEnabled = false) =>
         PlayIsolatedChannel(logicalLeft: false, swapEnabled);
 
-    /// <param name="logicalLeft">True = user pressed Left (expect physical left when swap corrects wiring).</param>
-    /// <param name="swapEnabled">When true, write the tone to the opposite WAV channel (in-app preview of L↔R).</param>
     private void PlayIsolatedChannel(bool logicalLeft, bool swapEnabled)
     {
-        // Hardware already swapped + software swap ON ⇒ tone for "Left" must go on WAV right, etc.
-        var toneOnLeftChannel = logicalLeft ^ swapEnabled;
+        var previewInApp = swapEnabled && !ApoStatus.IsComRegistered();
+        var toneOnLeftChannel = logicalLeft ^ previewInApp;
         PlayOnWavChannel(leftChannel: toneOnLeftChannel);
     }
 
@@ -54,38 +52,34 @@ public sealed class TestToneService
                 }
                 catch
                 {
-                    // ignore playback failures (no device, etc.)
+                    // ignore playback failures
                 }
             }, token);
         }
     }
 
-    /// <summary>
-    /// Builds a PCM WAV: sine on one channel, silence on the other.
-    /// </summary>
     internal static byte[] BuildStereoWav(bool leftChannel)
     {
         var frameCount = (int)(SampleRate * DurationSeconds);
-        var dataBytes = frameCount * 4; // 2 ch * 16-bit
+        var dataBytes = frameCount * 4;
         using var ms = new MemoryStream(44 + dataBytes);
         using var bw = new BinaryWriter(ms);
 
-        // RIFF header
         bw.Write("RIFF"u8);
         bw.Write(36 + dataBytes);
         bw.Write("WAVE"u8);
         bw.Write("fmt "u8);
-        bw.Write(16);                 // PCM chunk size
-        bw.Write((short)1);           // PCM
-        bw.Write((short)2);           // stereo
+        bw.Write(16);
+        bw.Write((short)1);
+        bw.Write((short)2);
         bw.Write(SampleRate);
-        bw.Write(SampleRate * 4);     // byte rate
-        bw.Write((short)4);           // block align
-        bw.Write((short)16);          // bits
+        bw.Write(SampleRate * 4);
+        bw.Write((short)4);
+        bw.Write((short)16);
         bw.Write("data"u8);
         bw.Write(dataBytes);
 
-        var fadeSamples = Math.Min(SampleRate / 50, frameCount / 10); // ~20 ms
+        var fadeSamples = Math.Min(SampleRate / 50, frameCount / 10);
         for (var i = 0; i < frameCount; i++)
         {
             var envelope = 1.0;
@@ -107,54 +101,125 @@ public sealed class TestToneService
 }
 
 /// <summary>
-/// Thin wrapper that launches the elevated install helper for FxProperties bind/unbind.
+/// Launches elevated StereoSwap.ApoSetup.exe for install / enable / disable.
 /// </summary>
 public sealed class ApoInstallClient
 {
-    public string? ResolveHelperPath()
+    public string? ResolveSetupExe()
     {
         var baseDir = AppContext.BaseDirectory;
         var candidates = new[]
         {
-            Path.Combine(baseDir, "InstallHelper", "RegisterApo.ps1"),
-            Path.Combine(baseDir, "RegisterApo.ps1"),
-            Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "install", "RegisterApo.ps1")),
-            Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "install", "RegisterApo.ps1"))
+            Path.Combine(baseDir, "StereoSwap.ApoSetup.exe"),
+            Path.Combine(baseDir, "InstallHelper", "StereoSwap.ApoSetup.exe"),
+            Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "ui", "StereoSwap.ApoSetup", "bin", "Debug", "net10.0-windows", "StereoSwap.ApoSetup.exe")),
+            Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "ui", "StereoSwap.ApoSetup", "bin", "Release", "net10.0-windows", "StereoSwap.ApoSetup.exe"))
         };
-
         return candidates.FirstOrDefault(File.Exists);
     }
 
-    public bool TryBindDevice(string deviceId, bool enable, out string message)
+    public string? ResolveDllPath()
     {
-        var script = ResolveHelperPath();
-        if (script is null)
+        var candidates = new[]
         {
-            message = "RegisterApo.ps1 not found. Bind manually via install\\RegisterApo.ps1";
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "StereoSwap", "StereoSwapApo.dll"),
+            Path.Combine(AppContext.BaseDirectory, "StereoSwapApo.dll"),
+            Path.Combine(AppContext.BaseDirectory, "InstallHelper", "StereoSwapApo.dll"),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "apo", "build", "bin", "StereoSwapApo.dll"))
+        };
+        return candidates.FirstOrDefault(File.Exists);
+    }
+
+    public bool TrySetSwap(string deviceId, bool enable, out string message)
+    {
+        var setup = ResolveSetupExe();
+        if (setup is null)
+        {
+            message = "StereoSwap.ApoSetup.exe not found. Rebuild the solution (F5).";
             return false;
         }
 
-        var action = enable ? "bind" : "unbind";
+        var dataDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "StereoSwap");
+        Directory.CreateDirectory(dataDir);
+        File.WriteAllText(
+            Path.Combine(dataDir, "pending-device-id.txt"),
+            deviceId.Trim().Trim('\'').Trim('"'));
+
+        var action = enable ? "enable" : "disable";
+        var args = action;
+        var dll = ResolveDllPath();
+        if (enable && dll is not null)
+            args += $" --dll \"{dll}\"";
+
         var psi = new ProcessStartInfo
         {
-            FileName = "powershell.exe",
-            Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{script}\" -Action {action} -DeviceId \"{deviceId}\"",
+            FileName = setup,
+            Arguments = args,
             UseShellExecute = true,
-            Verb = "runas",
-            WindowStyle = ProcessWindowStyle.Hidden
+            Verb = "runas"
         };
 
         try
         {
             using var proc = Process.Start(psi);
-            proc?.WaitForExit(60_000);
-            message = enable ? "APO bound (admin)." : "APO unbound (admin).";
-            return proc is { ExitCode: 0 };
+            if (proc is null)
+            {
+                message = "Could not start ApoSetup (UAC cancelled?).";
+                return false;
+            }
+
+            proc.WaitForExit(120_000);
+            var logHint = ReadLastInstallLog();
+            if (proc.ExitCode != 0)
+            {
+                message = (enable ? "APO enable failed." : "APO disable failed.")
+                          + (logHint is null
+                              ? " See %LocalAppData%\\StereoSwap\\last-install.log"
+                              : $" {logHint}");
+                return false;
+            }
+
+            message = enable
+                ? "System swap ON on selected hardware. Reboot once if this is the first install. Shared mode only (Beacn→Optical OK)."
+                : "System swap OFF (APO unbound).";
+            return true;
         }
         catch (Exception ex)
         {
-            message = $"Install helper error: {ex.Message}";
+            message = $"ApoSetup error: {ex.Message}";
             return false;
         }
+    }
+
+    private static string? ReadLastInstallLog()
+    {
+        try
+        {
+            var candidates = new[]
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "StereoSwap", "last-install.log"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "StereoSwap", "last-install.log")
+            };
+
+            foreach (var path in candidates)
+            {
+                if (!File.Exists(path))
+                    continue;
+                var text = File.ReadAllText(path, System.Text.Encoding.UTF8).Trim();
+                if (string.IsNullOrEmpty(text))
+                    continue;
+                var lines = text.Replace("\r\n", "\n").Split('\n');
+                var error = lines.LastOrDefault(l => l.Contains("ERROR:", StringComparison.OrdinalIgnoreCase));
+                return error ?? lines.LastOrDefault(l => !string.IsNullOrWhiteSpace(l));
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return null;
     }
 }

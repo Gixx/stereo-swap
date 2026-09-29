@@ -34,6 +34,10 @@ out/
 *.exp
 *.iobj
 *.ipdb
+*.obj
+
+# Accidental root compile leftovers (e.g. uuidapo.obj from local tests)
+/uuidapo.*
 
 # .NET
 project.lock.json

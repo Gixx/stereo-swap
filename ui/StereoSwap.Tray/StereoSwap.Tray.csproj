@@ -19,6 +19,25 @@
     <None Update="Assets\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\install\RegisterApo.ps1" Link="InstallHelper\RegisterApo.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\apo\build\bin\StereoSwapApo.dll" Link="InstallHelper\StereoSwapApo.dll" Condition="Exists('..\..\apo\build\bin\StereoSwapApo.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
+
+  <Target Name="BuildAndCopyApoSetup" AfterTargets="Build">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\StereoSwap.ApoSetup\StereoSwap.ApoSetup.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)" />
+    <ItemGroup>
+      <_ApoSetupCopy Include="$(MSBuildThisFileDirectory)..\StereoSwap.ApoSetup\bin\$(Configuration)\net10.0-windows\StereoSwap.ApoSetup.exe" />
+      <_ApoSetupCopy Include="$(MSBuildThisFileDirectory)..\StereoSwap.ApoSetup\bin\$(Configuration)\net10.0-windows\StereoSwap.ApoSetup.dll" />
+      <_ApoSetupCopy Include="$(MSBuildThisFileDirectory)..\StereoSwap.ApoSetup\bin\$(Configuration)\net10.0-windows\StereoSwap.ApoSetup.deps.json" />
+      <_ApoSetupCopy Include="$(MSBuildThisFileDirectory)..\StereoSwap.ApoSetup\bin\$(Configuration)\net10.0-windows\StereoSwap.ApoSetup.runtimeconfig.json" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_ApoSetupCopy)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('%(_ApoSetupCopy.Identity)')" />
+  </Target>
 
 </Project>

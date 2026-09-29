@@ -10,6 +10,31 @@ namespace
     HMODULE g_hModule = nullptr;
     LONG g_dllRef = 0;
 
+    void WriteLoadMarker()
+    {
+        // Prefer ProgramData (readable by tray); fall back to Windows\Temp.
+        const wchar_t* paths[] = {
+            L"C:\\Users\\Public\\StereoSwap-apo-load.log",
+            L"C:\\ProgramData\\StereoSwap\\apo-load.log",
+            L"C:\\Windows\\Temp\\StereoSwap-apo-load.log"
+        };
+        char buf[128];
+        const DWORD pid = GetCurrentProcessId();
+        int n = wsprintfA(buf, "StereoSwapApo loaded pid=%u\r\n", pid);
+        for (auto path : paths)
+        {
+            HANDLE h = CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ, nullptr,
+                CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+            if (h == INVALID_HANDLE_VALUE)
+                continue;
+            DWORD written = 0;
+            if (n > 0)
+                WriteFile(h, buf, (DWORD)n, &written, nullptr);
+            CloseHandle(h);
+            break;
+        }
+    }
+
     class ClassFactory : public IClassFactory
     {
     public:
@@ -59,6 +84,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID)
     {
         g_hModule = hModule;
         DisableThreadLibraryCalls(hModule);
+        WriteLoadMarker();
     }
     return TRUE;
 }
@@ -84,10 +110,8 @@ STDAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, void** ppv)
     return hr;
 }
 
-// COM registration is performed by install\RegisterApo.ps1 (regsvr32 optional path).
 STDAPI DllRegisterServer()
 {
-    // Stub: full InprocServer32 registration done by InstallHelper for MVP clarity.
     return S_OK;
 }
 

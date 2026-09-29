@@ -2,7 +2,26 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "kill-stereoswap",
+            "type": "process",
+            "command": "${workspaceFolder}/packaging/kill-stereoswap.cmd",
+            "args": [],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false,
+                "close": true
+            }
+        },
+        {
             "label": "build",
+            "dependsOn": ["kill-stereoswap"],
+            "dependsOrder": "sequence",
             "command": "dotnet",
             "type": "process",
             "args": [
@@ -11,7 +30,11 @@
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary;ForceNoAlign"
             ],
-            "problemMatcher": "$msCompile"
+            "problemMatcher": "$msCompile",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         },
         {
             "label": "publish",

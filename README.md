@@ -2,19 +2,25 @@
 
 Windows 11 mini app: **L↔R channel swap** on a selected stereo render device.
 
-Typical case: USB-to-Optical / soundbar has left and right swapped; jack/headphones are fine. Beacn Mix Create is excluded from the device list.
+Typical case: USB-to-Optical / soundbar has left and right swapped; jack/headphones are fine.
 
 Windows has no built-in channel swap; Voicemeeter and similar tools are heavier than needed for this.
 
+## Warning — use at your own risk
+
+StereoSwap loads an **unsigned** audio processing object (APO) into Windows Audio (`audiodg`). On many Windows 11 systems this only works if you turn **off Memory Integrity** (Windows Security → Device security → Core isolation → Memory integrity).
+
+Disabling Memory Integrity **weakens a system security feature**. **Use of this program is not recommended** for general or security-sensitive machines. If you proceed, you do so **entirely at your own risk**.
+
 ## Install without a terminal
 
-1. Double-click [`packaging\Build-Release.bat`](packaging/Build-Release.bat) → produces `dist\StereoSwap\StereoSwap.exe`
-2. Double-click `dist\StereoSwap\Install-StereoSwap.bat` → Start Menu + desktop shortcut
-3. Launch the **StereoSwap** icon
+1. Double-click [`packaging\Build-Release.bat`](packaging/Build-Release.bat) → `dist\StereoSwap\`
+2. Double-click `Install-StereoSwap.bat` → tray app shortcuts
+3. Double-click `Install-Apo.bat` → system APO (UAC / admin). **Reboot once** after the first install (unsigned APO allow flag).
+4. Turn **Memory Integrity OFF** (see warning above) and reboot if it was on.
+5. Open **StereoSwap** → select the Optical / soundbar device → enable **L↔R swap** (shared mode only).
 
-Details: [`packaging\USAGE.txt`](packaging/USAGE.txt). Uninstall: `Uninstall-StereoSwap.bat`.
-
-> The self-contained `.exe` does not require a separate .NET runtime. **L↔R audio swap** only takes effect after the APO DLL is built and bound (see below); the tray UI is usable without that.
+Details: [`packaging\USAGE.txt`](packaging/USAGE.txt).
 
 ## Architecture (MVP)
 
@@ -70,15 +76,11 @@ APO config: `%ProgramData%\StereoSwap\config.json`
 
 ## APO build and binding
 
-See [docs/apo-build.md](docs/apo-build.md), [docs/install.md](docs/install.md).
+- Developer build: double-click [`apo\Build-Apo.bat`](apo/Build-Apo.bat)
+- Install APO: [`packaging\Install-Apo.bat`](packaging/Install-Apo.bat) (admin)
+- Or see [docs/apo-build.md](docs/apo-build.md), [docs/install.md](docs/install.md)
 
-Short version (admin):
-
-```powershell
-# 1) Build the DLL, then:
-.\install\RegisterApo.ps1 -Action register -DllPath <path\StereoSwapApo.dll>
-.\install\RegisterApo.ps1 -Action bind -DeviceId '{0.0.0.00000000}.{endpoint-guid}'
-```
+When swap is enabled in the tray, it runs `RegisterApo.ps1 -Action enable` (bind FxProperties + restart Audiosrv).
 
 ## Out of scope (intentionally)
 

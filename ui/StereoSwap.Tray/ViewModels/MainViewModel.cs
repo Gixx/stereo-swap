@@ -88,26 +88,33 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _swapEnabled = _settings.SwapEnabled;
         _autostartEnabled = _settings.Autostart || _autostart.IsEnabled();
         RefreshDevices();
-        Status = DescribeApoGate() + " " + Status;
+        Status = DescribeApoGate();
     }
 
     private string DescribeToneStatus(bool logicalLeft)
     {
         var side = logicalLeft ? "Left" : "Right";
         if (!SwapEnabled)
-            return $"{side} tone on that WAV channel (swap off). If your speakers are wired swapped, you will hear it on the opposite side.";
+            return $"{side} tone (swap off). If cabling is reversed, you hear it on the opposite speaker.";
 
         if (ApoStatus.IsComRegistered())
-            return $"{side} tone — system APO should correct physical side when swap is ON.";
+            return $"{side} tone — system APO should place it on the correct physical side.";
 
-        return $"{side} tone with in-app swap preview ON (system APO not installed yet — only these test buttons are swapped, not Spotify/YouTube).";
+        return $"{side} tone with in-app preview only. Run Install-Apo.bat (admin) for system-wide swap.";
     }
 
     private static string DescribeApoGate()
     {
-        return ApoStatus.IsComRegistered()
-            ? "System APO registered."
-            : "Note: system-wide L↔R needs StereoSwapApo.dll (not installed). Swap checkbox still previews on Left/Right test buttons.";
+        if (ApoStatus.IsMemoryIntegrityEnabled())
+            return "Blocked: Memory Integrity (Core Isolation) is ON — unsigned APO cannot load. Turn it OFF in Windows Security, reboot, then enable swap.";
+
+        if (!ApoStatus.IsComRegistered())
+            return "System APO not installed yet. Build apo\\Build-Apo.bat, then packaging\\Install-Apo.bat (UAC).";
+
+        if (!ApoStatus.IsProtectedAudioDgDisabled())
+            return "APO registered, but DisableProtectedAudioDG is not set. Enable swap once (UAC), then reboot.";
+
+        return "System APO ready — select Optical device and enable L↔R swap.";
     }
 
     public void RefreshDevices()
@@ -133,19 +140,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return;
         }
 
-        if (!ApoStatus.IsComRegistered())
+        Status = enable ? "Requesting admin to enable system APO..." : "Requesting admin to disable system APO...";
+
+        if (_apo.TrySetSwap(SelectedDevice.Id, enable, out var msg))
         {
-            Status = enable
-                ? "Swap ON for test tones (in-app). System audio unchanged until StereoSwapApo.dll is built & registered."
-                : "Swap OFF. Test tones play on their true WAV channels again.";
+            Status = msg;
             return;
         }
 
-        // Config.json is enough for the enable flag once APO is bound; bind/unbind for first-time MVP.
-        if (_apo.TryBindDevice(SelectedDevice.Id, enable, out var msg))
-            Status = msg;
-        else
-            Status = msg + " Config saved.";
+        Status = msg;
     }
 
     private void Persist()

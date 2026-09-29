@@ -1,33 +1,45 @@
 StereoSwap — usage (no terminal required)
 ========================================
 
-1) BUILD (on a developer machine, once)
+1) BUILD (developer machine)
    - Double-click: packaging\Build-Release.bat
-   - Opens: dist\StereoSwap\
+   - Builds tray .exe + APO DLL into dist\StereoSwap\
 
-2) INSTALL (any Windows 11 PC)
-   - Open: dist\StereoSwap\
-   - Double-click: Install-StereoSwap.bat
-   - Answer Y to launch now
-   - Desktop / Start Menu: "StereoSwap"
+2) INSTALL TRAY
+   - Double-click: dist\StereoSwap\Install-StereoSwap.bat
+   - Start Menu / Desktop shortcut appears
 
-3) USE
-   - Select the soundbar / USB-to-Optical output
-   - Enable: "L↔R swap"
-   - Channel check: "Left" / "Right" buttons (tone only on that
-     channel — like audiocheck.net stereo L/R test; no Center)
+3) INSTALL SYSTEM APO (required for real L/R swap)
+   - Double-click: dist\StereoSwap\Install-Apo.bat
+   - Accept UAC — copies DLL to Program Files + COM register
+   - Sets DisableProtectedAudioDG (unsigned APO allow) — reboot once after first install
 
-4) APO (real audio swap) — later step
-   The tray UI alone does not swap audio until
-   StereoSwapApo.dll is built and registered.
-   When the DLL is present, InstallHelper\RegisterApo.ps1
-   handles binding (UAC / admin prompt will appear).
+4) ENABLE SWAP
+   - Open StereoSwap
+   - Select the final hardware output (e.g. USB-to-Optical / soundbar) — not Beacn
+   - Check "L↔R swap enabled" (UAC — binds APO, restarts audio briefly)
+   - Use Left / Right buttons to verify (shared mode only)
+
+   Beacn / virtual mixer setups
+   ---------------------------
+   Windows default can stay on Beacn (or similar). Bind StereoSwap on the
+   physical device Beacn sends to (Listening Device = U-Optical). The APO
+   runs on that endpoint when Beacn opens it in shared mode.
 
 5) UNINSTALL
-   - Double-click: Uninstall-StereoSwap.bat
-     (in the install folder or under packaging\)
+   - Uncheck swap (unbind), then Uninstall-StereoSwap.bat
+   - Optional: RegisterApo.ps1 -Action unregister (admin)
 
 Shared vs exclusive
 -------------------
-L↔R swap only works on the Windows shared audio path.
-Exclusive-mode games / bit-perfect players bypass it.
+APO runs only on the Windows shared path. Exclusive-mode
+players/games (or a mixer opening the optical device exclusive) bypass it.
+
+If swap still does nothing
+--------------------------
+- Turn OFF Memory Integrity: Windows Security → Device security → Core isolation
+  → Memory integrity OFF → reboot (required on many Win11 PCs for unsigned APOs)
+- Reboot once after the first APO install (DisableProtectedAudioDG)
+- Confirm StereoSwap is bound to the final hardware endpoint (Optical), not Beacn
+- Confirm Beacn Listening Device is that Optical output, shared mode
+- Confirm "Audio enhancements" are not fully disabled on that Optical device

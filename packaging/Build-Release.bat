@@ -21,7 +21,13 @@ if exist "%OUT%" rmdir /s /q "%OUT%"
 mkdir "%OUT%" 2>nul
 mkdir "%OUT%\InstallHelper" 2>nul
 
-echo [1/3] Publishing StereoSwap.exe (self-contained, win-x64)...
+echo [1/4] Building APO DLL...
+call "%~dp0..\apo\Build-Apo.bat"
+if errorlevel 1 (
+  echo [WARN] APO build failed — tray will ship without StereoSwapApo.dll
+)
+
+echo [2/4] Publishing StereoSwap.exe (self-contained, win-x64)...
 dotnet publish "%~dp0..\ui\StereoSwap.Tray\StereoSwap.Tray.csproj" ^
   -c Release ^
   -r win-x64 ^
@@ -36,17 +42,24 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [2/3] Copying install helper and usage notes...
+echo [3/4] Copying install helpers...
 copy /Y "%~dp0..\install\RegisterApo.ps1" "%OUT%\InstallHelper\RegisterApo.ps1" >nul
 copy /Y "%~dp0Install-StereoSwap.bat" "%OUT%\Install-StereoSwap.bat" >nul
+copy /Y "%~dp0Install-Apo.bat" "%OUT%\Install-Apo.bat" >nul
 copy /Y "%~dp0Uninstall-StereoSwap.bat" "%OUT%\Uninstall-StereoSwap.bat" >nul
 copy /Y "%~dp0USAGE.txt" "%OUT%\USAGE.txt" >nul
+if exist "%~dp0..\apo\build\bin\StereoSwapApo.dll" (
+  copy /Y "%~dp0..\apo\build\bin\StereoSwapApo.dll" "%OUT%\InstallHelper\StereoSwapApo.dll" >nul
+  copy /Y "%~dp0..\apo\build\bin\StereoSwapApo.dll" "%OUT%\StereoSwapApo.dll" >nul
+)
 
-echo [3/3] Done.
+echo [4/4] Done.
 echo.
 echo Output: %OUT%
 echo.
-echo Next: open dist\StereoSwap and double-click Install-StereoSwap.bat
+echo 1^) Install-StereoSwap.bat  — tray app
+echo 2^) Install-Apo.bat         — system APO ^(admin^)
+echo 3^) Open StereoSwap → enable L/R swap
 echo.
 explorer "%OUT%"
 pause
