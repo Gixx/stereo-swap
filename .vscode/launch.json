@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "StereoSwap.Tray",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/ui/StereoSwap.Tray/bin/Debug/net10.0-windows/StereoSwap.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/ui/StereoSwap.Tray",
+            "console": "internalConsole",
+            "stopAtEntry": false
+        },
+        {
+            "name": ".NET Core Attach",
+            "type": "coreclr",
+            "request": "attach"
+        }
+    ]
+}

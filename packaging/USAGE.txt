@@ -1,0 +1,33 @@
+StereoSwap — usage (no terminal required)
+========================================
+
+1) BUILD (on a developer machine, once)
+   - Double-click: packaging\Build-Release.bat
+   - Opens: dist\StereoSwap\
+
+2) INSTALL (any Windows 11 PC)
+   - Open: dist\StereoSwap\
+   - Double-click: Install-StereoSwap.bat
+   - Answer Y to launch now
+   - Desktop / Start Menu: "StereoSwap"
+
+3) USE
+   - Select the soundbar / USB-to-Optical output
+   - Enable: "L↔R swap"
+   - Channel check: "Left" / "Right" buttons (tone only on that
+     channel — like audiocheck.net stereo L/R test; no Center)
+
+4) APO (real audio swap) — later step
+   The tray UI alone does not swap audio until
+   StereoSwapApo.dll is built and registered.
+   When the DLL is present, InstallHelper\RegisterApo.ps1
+   handles binding (UAC / admin prompt will appear).
+
+5) UNINSTALL
+   - Double-click: Uninstall-StereoSwap.bat
+     (in the install folder or under packaging\)
+
+Shared vs exclusive
+-------------------
+L↔R swap only works on the Windows shared audio path.
+Exclusive-mode games / bit-perfect players bypass it.
